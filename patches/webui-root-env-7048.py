@@ -67,7 +67,7 @@ close_anchor = "    'HERMES_WEBUI_MAX_SESSION_RESOLVE',\n})"
 assert src.count(close_anchor) == 1, 'protected-keys close anchor not found or ambiguous'
 src = src.replace(close_anchor, close_anchor + '\n' + ALLOWLIST, 1)
 
-anchor_ret = 'logger.debug("Failed to read runtime env from %s", env_path)\n\n    return env'
+anchor_ret = 'logger.debug("Failed to read runtime env from %s", env_path)\n    return env'
 assert src.count(anchor_ret) == 1, 'return anchor not found or ambiguous'
 src = src.replace(anchor_ret,
                   'logger.debug("Failed to read runtime env from %s", env_path)\n'
