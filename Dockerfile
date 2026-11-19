@@ -16,8 +16,8 @@
 
 # ---------------------------------------------------------------------------
 # Stage 1: Use the official hermes-agent image as the base
-# This already contains: Python 3.13, Node.js, npm, Playwright, agent code,
-# the built-in web dashboard (hermes dashboard), the gateway, uv, and s6-overlay.
+# This already contains: Python, Node.js, npm, Playwright, agent code,
+# the built-in web dashboard (hermes dashboard), the gateway, and s6-overlay.
 # ---------------------------------------------------------------------------
 ARG AGENT_VERSION=v2026.9.24
 ARG ENABLE_WHATSAPP_BRIDGE=false
@@ -92,9 +92,9 @@ RUN mkdir -p /var/log/supervisor /var/run/supervisor && \
 
 # ---------------------------------------------------------------------------
 # Stage 5: Install hermes-webui
-# The webui is a Python web server (server.py). We clone it from GitHub
-# and set up its own venv using uv (avoids python3-venv package requirement).
-# The webui needs the agent's Python deps to import agent modules.
+# The webui is a Python web server (server.py). Use uv for dependency
+# resolution because Hermes Agent publishes [tool.uv] overrides (notably
+# Pillow) needed to resolve its extras with browser-harness.
 # We install with the same extras the base image bakes into /opt/hermes/.venv
 # (all, messaging, otlp, anthropic, bedrock, azure-identity, matrix,
 # google-chat) so the webui's in-process agent has working memory and
@@ -104,13 +104,16 @@ RUN mkdir -p /var/log/supervisor /var/run/supervisor && \
 #
 # PIN to a specific tag for reproducible builds — never use 'master'.
 # ---------------------------------------------------------------------------
-ARG HERMES_WEBUI_VERSION=v0.52.492
-RUN cd /opt && \
+ARG HERMES_WEBUI_VERSION=v0.52.679
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh && \
+    cd /opt && \
     git clone --depth 1 --branch ${HERMES_WEBUI_VERSION} \
         https://github.com/nesquena/hermes-webui.git hermes-webui && \
-    python3 -m venv --copies /opt/hermes-webui/venv && \
-    /opt/hermes-webui/venv/bin/python3 -m pip install --no-cache-dir -r /opt/hermes-webui/requirements.txt && \
-    /opt/hermes-webui/venv/bin/python3 -m pip install --no-cache-dir -e "/opt/hermes[all,messaging,otlp,anthropic,bedrock,azure-identity,matrix,google-chat]" && \
+    uv venv --python python3 /opt/hermes-webui/venv && \
+    uv pip install --python /opt/hermes-webui/venv/bin/python -r /opt/hermes-webui/requirements.txt && \
+    python3 /opt/hermes-webui/scripts/docker_venv_python.py --uv-overrides /opt/hermes/pyproject.toml /tmp/hermes-agent-uv-overrides.txt && \
+    uv pip install --python /opt/hermes-webui/venv/bin/python -e "/opt/hermes[all,messaging,otlp,anthropic,bedrock,azure-identity,matrix,google-chat]" --overrides /tmp/hermes-agent-uv-overrides.txt && \
+    rm -f /tmp/hermes-agent-uv-overrides.txt && \
     rm -rf /opt/hermes-webui/.git
 
 # Bake version tag into the webui
@@ -138,7 +141,7 @@ RUN python3 /tmp/webui-root-env-7048.py && rm /tmp/webui-root-env-7048.py
 # ascensionoid/hermes-suite image tag instead of upstream webui releases and
 # ghcr.io/nesquena/hermes-webui (which a suite deployment cannot use).
 # Empty tag (non-suite builds of the webui alone) leaves upstream behavior
-# unchanged. DROP THIS PATCH when upstream webui ships a deployment-aware
+# unchanged. DROP THIS PATCH when upstream WebUI ships a deployment-aware
 # release check natively.
 # NOTE: ARGs are declared in-stage (after FROM) so they expand in RUN/ENV;
 # global-scope ARGs before FROM do not (see the INSTALL_BROWSER note above).
@@ -173,7 +176,7 @@ RUN sed -i 's/auto = _auto_sso_response(request)/auto = None  # disabled: BasicA
 # Re-declare ARGs after FROM so they are available in LABEL
 ARG AGENT_VERSION=v2026.9.24
 ARG ENABLE_WHATSAPP_BRIDGE=false
-ARG HERMES_WEBUI_VERSION=v0.52.492
+ARG HERMES_WEBUI_VERSION=v0.52.679
 
 LABEL org.opencontainers.image.title="Hermes Suite" \
       org.opencontainers.image.description="All-in-one: hermes-agent + hermes-webui + hermes-dashboard" \
