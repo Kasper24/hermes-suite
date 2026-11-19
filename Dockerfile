@@ -79,16 +79,11 @@ RUN if [ "$INSTALL_BROWSER" = "true" ]; then \
     rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
-# Stage 4: Install supervisord via uv (not available in Debian Trixie apt)
-# We install it into a dedicated venv at /opt/supervisor.
-# --python /usr/bin/python3: the agent v2026.9.24 base ships
-# /opt/hermes/.python-version ("3.11"), which makes uv use its own managed
-# CPython under /root/.local (mode 700) — the runtime user cannot execute
-# it ("bad interpreter: Permission denied"). Pin to the system interpreter,
-# matching the base image's own prebuilt /opt/hermes/.venv (python3.13).
+# Stage 4: Install supervisord via the system Python venv.
+# The Hermes Agent runtime image does not ship the uv installer executable.
 # ---------------------------------------------------------------------------
-RUN uv venv --python /usr/bin/python3 /opt/supervisor && \
-    uv pip install --python /opt/supervisor/bin/python3 supervisor && \
+RUN python3 -m venv /opt/supervisor && \
+    /opt/supervisor/bin/python3 -m pip install --no-cache-dir supervisor && \
     ln -sf /opt/supervisor/bin/supervisord /usr/local/bin/supervisord && \
     ln -sf /opt/supervisor/bin/supervisorctl /usr/local/bin/supervisorctl
 
@@ -113,9 +108,9 @@ ARG HERMES_WEBUI_VERSION=v0.52.492
 RUN cd /opt && \
     git clone --depth 1 --branch ${HERMES_WEBUI_VERSION} \
         https://github.com/nesquena/hermes-webui.git hermes-webui && \
-    uv venv --python /usr/bin/python3 /opt/hermes-webui/venv && \
-    uv pip install --python /opt/hermes-webui/venv/bin/python3 --no-cache-dir -r /opt/hermes-webui/requirements.txt && \
-    uv pip install --python /opt/hermes-webui/venv/bin/python3 --no-cache-dir -e "/opt/hermes[all,messaging,otlp,anthropic,bedrock,azure-identity,matrix,google-chat]" && \
+    python3 -m venv --copies /opt/hermes-webui/venv && \
+    /opt/hermes-webui/venv/bin/python3 -m pip install --no-cache-dir -r /opt/hermes-webui/requirements.txt && \
+    /opt/hermes-webui/venv/bin/python3 -m pip install --no-cache-dir -e "/opt/hermes[all,messaging,otlp,anthropic,bedrock,azure-identity,matrix,google-chat]" && \
     rm -rf /opt/hermes-webui/.git
 
 # Bake version tag into the webui
