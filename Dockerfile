@@ -70,7 +70,7 @@ RUN if [ "$INSTALL_BROWSER" = "true" ]; then \
         npm install --global --prefix /opt/pnpm --no-audit --allow-scripts=pnpm pnpm@12.15.0 && \
         rm -rf /opt/hermes/node_modules && \
         /opt/pnpm/bin/pnpm install --frozen-lockfile && \
-        npx playwright install --with-deps chromium --only-shell && \
+        PLAYWRIGHT_BROWSERS_PATH=/opt/hermes/.playwright /opt/pnpm/bin/pnpm dlx playwright@1.64.0 install --with-deps chromium --only-shell && \
         npm cache clean --force; \
     else \
         rm -rf /opt/hermes/.playwright; \
