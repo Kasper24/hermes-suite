@@ -67,7 +67,8 @@ ARG INSTALL_BROWSER=true
 ARG ENABLE_WHATSAPP_BRIDGE=false
 RUN if [ "$INSTALL_BROWSER" = "true" ]; then \
         cd /opt/hermes && \
-        npm install --prefer-offline --no-audit && \
+        npm install --global --no-audit pnpm@12.15.0 && \
+        pnpm install --frozen-lockfile && \
         npx playwright install --with-deps chromium --only-shell && \
         npm cache clean --force; \
     else \
